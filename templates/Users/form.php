@@ -1,0 +1,8 @@
+<?php $this->assign('title', $user->isNew() ? 'Novo usuário' : 'Editar usuário'); $self = (int)$user->id === (int)$currentUser->getIdentifier(); ?>
+<a class="mb-5 inline-block text-sm text-slate-500" href="<?= $this->Url->build('/usuarios') ?>">← Voltar para usuários</a><h1 class="page-title mb-7"><?= $user->isNew() ? 'Novo usuário' : 'Editar usuário' ?></h1><section class="panel max-w-2xl p-6">
+<?= $this->Form->create($user) ?>
+<?= $this->Form->control('name', ['label' => 'Nome', 'required' => true]) ?>
+<?= $this->Form->control('email', ['label' => 'E-mail', 'type' => 'email', 'required' => true, 'autocomplete' => 'off']) ?>
+<?= $this->Form->control('password', ['label' => $user->isNew() ? 'Senha (12 a 72 caracteres)' : 'Nova senha (deixe em branco para manter)', 'value' => '', 'required' => $user->isNew(), 'autocomplete' => 'new-password']) ?>
+<?php if (!$self): ?><?= $this->Form->control('role', ['label' => 'Perfil', 'options' => ['USUARIO' => 'Usuário', 'ADMIN' => 'Administrador']]) ?><?= $this->Form->control('active', ['label' => 'Acesso ativo', 'type' => 'checkbox']) ?><?php else: ?><p class="muted mb-5">Você mantém seu próprio acesso de administrador ativo.</p><?php endif; ?>
+<p class="mb-6 rounded-lg bg-slate-50 p-4 text-sm leading-relaxed text-slate-600">Administradores gerenciam cadastros e usuários. Usuários consultam os checklists, confirmam lembretes com CIENTE e acessam o histórico.</p><div class="flex justify-end gap-3"><a class="btn-secondary" href="<?= $this->Url->build('/usuarios') ?>">Cancelar</a><?= $this->Form->button('Salvar usuário', ['class' => 'btn']) ?></div><?= $this->Form->end() ?></section>

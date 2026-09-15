@@ -1,0 +1,62 @@
+@import "tailwindcss";
+@source "../../templates";
+@source "../../webroot/js";
+@theme {
+ --font-sans: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+ --color-brand-50: #eef8f5; --color-brand-100: #d5efe5; --color-brand-600: #127c60; --color-brand-700: #0f624e; --color-brand-900: #123d34;
+}
+@layer base {
+ body { @apply bg-slate-50 text-slate-800 antialiased; }
+ button, a, input, select, textarea { @apply outline-offset-4; }
+ button { @apply cursor-pointer; }
+ input:not([type=checkbox]):not([type=hidden]), select, textarea { @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-xs focus:border-brand-600 focus:ring-2 focus:ring-brand-100 focus:outline-none; }
+ input[type=checkbox] { @apply size-4 accent-brand-600; }
+ label { @apply mb-1.5 block text-sm font-semibold text-slate-700; }
+ textarea { @apply min-h-28; }
+ th { @apply bg-slate-50 px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500; }
+ td { @apply border-t border-slate-100 px-5 py-4 text-sm; }
+}
+@layer components {
+ .alert-card { @apply rounded-xl border p-4 transition hover:shadow-md; }
+ .alert-badge { @apply inline-flex rounded-full border px-2.5 py-1 text-xs font-bold whitespace-nowrap; }
+ .alert-overdue { @apply border-red-300 bg-red-50 text-red-800; }
+ .alert-today { @apply border-orange-300 bg-orange-100 text-orange-900; }
+ .alert-upcoming { @apply border-amber-200 bg-amber-50 text-amber-900; }
+ .alert-current { @apply border-emerald-200 bg-emerald-50 text-emerald-800; }
+ .alert-paused { @apply border-slate-200 bg-slate-100 text-slate-600; }
+ .btn { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700; }
+ .btn-secondary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50; }
+ .panel { @apply rounded-xl border border-slate-200 bg-white shadow-xs; }
+ .muted { @apply text-sm leading-relaxed text-slate-500; }
+ .page-title { @apply text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl; }
+ .badge { @apply inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700; }
+ .badge-paused { @apply bg-slate-100 text-slate-600; }
+ .input { @apply mb-5; }
+ .input.error input, .input.error textarea { @apply border-red-500; }
+ .error-message { @apply mt-1 text-sm text-red-700; }
+ .message { @apply mb-5 rounded-lg border border-slate-200 bg-white p-4 text-sm; }
+ .message.success { @apply border-emerald-200 bg-emerald-50 text-emerald-900; }
+ .message.error { @apply border-red-200 bg-red-50 text-red-900; }
+ .nav-link { @apply flex min-h-11 items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-slate-300 hover:bg-white/10 hover:text-white; }
+ .nav-link.active { @apply bg-white/10 text-white; }
+ .nav-icon { @apply flex size-5 shrink-0 items-center justify-center; }
+ .pagination { @apply flex flex-wrap items-center gap-2 text-sm; }
+ .pagination li { @apply list-none; }
+ .pagination a { @apply inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-3; }
+ .pagination .active a { @apply border-brand-600 bg-brand-600 text-white; }
+ .pagination .disabled { @apply opacity-40; }
+}
+#sidebar { transition: width .2s, transform .2s; }
+dialog::backdrop { background: rgb(15 23 42 / .6); }
+body:has(dialog[open]) { overflow: hidden; }
+@media (min-width: 1024px) {
+ body.sidebar-collapsed #sidebar { width: 80px; }
+ body.sidebar-collapsed #main-shell { margin-left: 80px; }
+ body.sidebar-collapsed .sidebar-label { display: none; }
+ body.sidebar-collapsed .nav-link { justify-content: center; }
+}
+@media (max-width: 1023px) {
+ #sidebar { transform: translateX(-100%); }
+ body.drawer-open #sidebar { transform: translateX(0); }
+ body.drawer-open { overflow: hidden; }
+}

@@ -1,0 +1,19 @@
+<?php $isNew = $checklist->isNew(); $this->assign('title', $isNew ? 'Novo checklist' : 'Editar checklist');
+$programLocked = !$isNew && ($checklist->status === 'PAUSADO' || $schedule->ended_at !== null || ($schedule->start_date && $schedule->start_date <= (new \App\Service\RecurrenceCalendar())->today())); ?>
+<a class="mb-5 inline-block text-sm text-slate-500 hover:text-brand-700" href="<?= $this->Url->build('/checklists') ?>">← Voltar para checklists</a><h1 class="page-title"><?= $isNew ? 'Novo checklist' : 'Editar checklist' ?></h1><p class="muted mb-7 mt-2">Defina as informações e a programação inicial do lembrete.</p>
+<?= $this->Form->create($checklist) ?>
+<div class="grid items-start gap-6 xl:grid-cols-[1fr_280px]"><div class="space-y-6">
+<section class="panel p-5 sm:p-7"><h2 class="mb-6 text-lg font-semibold">Informações do checklist</h2><div class="grid gap-x-5 sm:grid-cols-2">
+<?= $this->Form->control('code', ['label' => 'Código *', 'required' => true, 'placeholder' => 'Ex.: PREV-ELE-001']) ?>
+<?= $this->Form->control('name', ['label' => 'Nome *', 'required' => true, 'placeholder' => 'Ex.: Manutenção Preventiva Elétrica']) ?>
+<?= $this->Form->control('area', ['label' => 'Área / setor *', 'required' => true, 'placeholder' => 'Ex.: Recepção']) ?>
+<?= $this->Form->control('route', ['label' => 'Rota', 'placeholder' => 'Opcional']) ?></div>
+<?= $this->Form->control('description', ['label' => 'Descrição', 'type' => 'textarea', 'placeholder' => 'Informações sobre esta manutenção...']) ?>
+<?= $this->Form->control('notes', ['label' => 'Observação', 'type' => 'textarea', 'placeholder' => 'Orientações adicionais para a equipe...']) ?></section>
+<section class="panel p-5 sm:p-7"><h2 class="mb-2 text-lg font-semibold">Programação</h2><p class="muted mb-6">O calendário será baseado na data inicial e no intervalo informado.</p><div class="grid gap-x-5 sm:grid-cols-2">
+<div><?= $this->Form->control('interval_days', ['label' => 'Periodicidade em dias *', 'type' => 'number', 'min' => 1, 'max' => 2147483647, 'step' => 1, 'required' => true, 'readonly' => $programLocked, 'value' => $schedule->interval_days, 'placeholder' => 'Ex.: 15']) ?><?php foreach ($schedule->getError('interval_days') as $error): ?><p class="error-message mb-3" role="alert"><?= h($error) ?></p><?php endforeach; ?></div>
+<div><?= $this->Form->control('start_date', ['label' => 'Data inicial *', 'type' => 'date', 'required' => true, 'readonly' => $programLocked, 'value' => $schedule->start_date?->format('Y-m-d')]) ?><?php foreach ($schedule->getError('start_date') as $error): ?><p class="error-message mb-3" role="alert"><?= h($error) ?></p><?php endforeach; ?></div>
+</div><?php if ($programLocked): ?><p class="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">A programação já iniciou. A data-base e a periodicidade estão protegidas para preservar os ciclos previstos. As demais informações continuam editáveis.</p><?php endif; ?><p class="rounded-lg bg-slate-50 p-3 text-xs leading-relaxed text-slate-500">Exemplo: início em 10/09/2026, a cada 15 dias → 25/09, 10/10, 25/10. A confirmação de um lembrete não deslocará essas datas.</p></section>
+<div class="flex flex-wrap justify-end gap-3"><a class="btn-secondary" href="<?= $this->Url->build('/checklists') ?>">Cancelar</a><?= $this->Form->button($isNew ? 'Cadastrar checklist' : 'Salvar alterações', ['class' => 'btn']) ?></div></div>
+<aside class="panel p-6"><span class="badge"><?= h($checklist->status ?? 'ATIVO') ?></span><h2 class="mb-2 mt-5 font-semibold">Um lembrete, a cada ciclo</h2><p class="muted">Este cadastro organiza os lembretes. A abertura da O.S. será feita pela pessoa responsável no sistema utilizado pela empresa.</p><hr class="my-5 border-slate-100"><p class="text-xs leading-relaxed text-slate-500">* Campos obrigatórios.<br>ADMIN pode pausar ou reativar na página do checklist. A reativação exige uma nova data inicial.</p></aside></div>
+<?= $this->Form->end() ?>

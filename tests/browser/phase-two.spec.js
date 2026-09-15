@@ -1,0 +1,31 @@
+const { test, expect } = require('@playwright/test');
+
+test('dashboard operacional: alertas, cards, acúmulo e filtro de pausados', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/login');
+  await page.getByLabel('E-mail', {exact:true}).fill('admin@browser.example.test');
+  await page.getByLabel('Senha', {exact:true}).fill('Browser-test-password-123');
+  await page.getByRole('button', {name:'Entrar na minha conta'}).click();
+  await expect(page.getByRole('heading', {name:'Painel de alertas'})).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('ATENÇÃO');
+  await expect(page.locator('[data-card]')).toHaveCount(5);
+  await expect(page.getByText('FASE2-PAUSADO', {exact:true})).toHaveCount(0);
+  const overdue = page.locator('#checklist-summary tr').filter({hasText:'FASE2-ATRASADO'});
+  await expect(overdue).toContainText('3 ciclos pendentes');
+  await expect(overdue).toContainText('Atrasado há 31 dias');
+  await expect(overdue.locator('.alert-badge')).toHaveClass(/alert-overdue/);
+  await expect(page.getByRole('link', {name:'CIENTE',exact:true}).first()).toBeVisible();
+  await page.screenshot({path:'tmp/screenshots/fase2-dashboard-desktop.png', fullPage:true});
+  await page.locator('[data-card="HOJE"]').click();
+  await expect(page.locator('#checklist-summary tbody tr')).toHaveCount(1);
+  await expect(page.locator('#checklist-summary tbody')).toContainText('FASE2-HOJE');
+  await page.locator('[data-card="PAUSADO"]').click();
+  await expect(page.locator('#checklist-summary tbody tr')).toHaveCount(1);
+  await expect(page.locator('#checklist-summary tbody')).toContainText('Fora dos alertas');
+  await page.setViewportSize({width:390, height:844});
+  await page.goto('/');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({path:'tmp/screenshots/fase2-dashboard-mobile.png', fullPage:true});
+  await page.locator('[data-card="PROXIMOS"]').click();
+  await expect(page.locator('#checklist-summary tbody')).toContainText('Faltam 7 dias');
+});

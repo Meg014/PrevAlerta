@@ -1,0 +1,75 @@
+const { test, expect } = require('@playwright/test');
+
+async function login(page, role) {
+  await page.goto('/login');
+  await page.getByLabel('E-mail', {exact:true}).fill(`${role}@browser.example.test`);
+  await page.getByLabel('Senha', {exact:true}).fill('Browser-test-password-123');
+  await page.getByRole('button', {name:'Entrar na minha conta'}).click();
+  await expect(page.getByRole('heading', {name:'Painel de alertas'})).toBeVisible();
+}
+
+test('USUARIO confirma um ciclo, mantém os demais e consulta o histórico', async ({ page }) => {
+  await page.setViewportSize({width:1440, height:1000});
+  await login(page, 'admin');
+  const code = `CIENTE-${Date.now()}`;
+  const localDate = new Intl.DateTimeFormat('en-CA', {timeZone:'America/Sao_Paulo'}).format(new Date());
+  const base = new Date(`${localDate}T12:00:00Z`);
+  base.setUTCDate(base.getUTCDate() - 10);
+  await page.goto('/checklists/novo');
+  await page.getByLabel('Código *', {exact:true}).fill(code);
+  await page.getByLabel('Nome *', {exact:true}).fill('Preventiva — teste CIENTE');
+  await page.getByLabel('Área / setor *', {exact:true}).fill('Recepção');
+  await page.getByLabel('Periodicidade em dias *', {exact:true}).fill('5');
+  await page.getByLabel('Data inicial *', {exact:true}).fill(base.toISOString().slice(0,10));
+  await page.getByRole('button', {name:'Cadastrar checklist',exact:true}).click();
+  await expect(page).toHaveURL(/\/checklists\/\d+$/);
+  const checklistId = page.url().split('/').at(-1);
+  await page.getByRole('link', {name:'Sair',exact:true}).click();
+  await login(page, 'usuario');
+  await page.goto(`/?q=${code}`);
+  const rows = page.locator('[data-occurrence]');
+  await expect(rows).toHaveCount(3);
+  const firstId = await rows.first().getAttribute('data-occurrence');
+  const secondDate = await rows.nth(1).locator('td').nth(1).innerText();
+  const firstDate = await rows.first().locator('td').nth(1).innerText();
+  await rows.first().getByRole('link', {name:'CIENTE',exact:true}).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Confirma que o aviso deste checklist foi tratado?');
+  await expect(dialog).toContainText(code);
+  await expect(dialog).toContainText(firstDate);
+  await expect(dialog).toContainText('Atrasado há 10 dias');
+  await dialog.getByRole('button', {name:'Cancelar',exact:true}).click();
+  await expect(rows).toHaveCount(3);
+  await rows.first().getByRole('link', {name:'CIENTE',exact:true}).click();
+  await page.screenshot({path:'tmp/screenshots/fase3-confirmacao-desktop.png', fullPage:true});
+  await dialog.getByRole('button', {name:'Confirmar CIENTE',exact:true}).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByText('Ocorrência marcada como ciente com sucesso.', {exact:true})).toBeVisible();
+  await expect(page.locator(`[data-occurrence="${firstId}"]`)).toHaveCount(0);
+  await page.goto(`/?q=${code}`);
+  await expect(rows).toHaveCount(2);
+  await expect(page.locator('#checklist-summary')).toContainText(secondDate);
+  await page.goto(`/checklists/${checklistId}/historico`);
+  const historyRow = page.locator(`[data-history-occurrence="${firstId}"]`);
+  await expect(historyRow).toContainText(firstDate);
+  await expect(historyRow).toContainText('Teste USUARIO');
+  await expect(historyRow).toContainText('ATRASADO');
+  await expect(historyRow).toContainText('10 dias');
+  await expect(historyRow.getByRole('link', {name:'CIENTE',exact:true})).toHaveCount(0);
+  await page.screenshot({path:'tmp/screenshots/fase3-historico-desktop.png', fullPage:true});
+  await page.goto(`/historico?q=${code}&action=CIENTE`);
+  await expect(page.locator('[data-audit-id]')).toHaveCount(1);
+  await expect(page.locator('[data-audit-id]')).toContainText('Teste USUARIO');
+  // Também confirma a acessibilidade do modal no celular e a rota sem JavaScript.
+  await page.setViewportSize({width:390, height:844});
+  await page.goto(`/?q=${code}`);
+  await rows.first().getByRole('link', {name:'CIENTE',exact:true}).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.screenshot({path:'tmp/screenshots/fase3-confirmacao-mobile.png', fullPage:true});
+  await page.keyboard.press('Escape');
+  await expect(rows.first().getByRole('link', {name:'CIENTE',exact:true})).toBeFocused();
+  const fallbackUrl = await rows.first().getByRole('link', {name:'CIENTE',exact:true}).getAttribute('href');
+  await page.goto(fallbackUrl);
+  await expect(page.getByRole('heading', {name:'Confirmar CIENTE'})).toBeVisible();
+  await page.getByRole('link', {name:'Cancelar',exact:true}).click();
+});
