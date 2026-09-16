@@ -19,9 +19,9 @@ class ChecklistsController extends AppController
         $status = (string)$this->request->getQuery('status', '');
         if ($search !== '') {
             $query->where(['OR' => [
-                'Checklists.name LIKE' => '%' . $search . '%',
-                'Checklists.code LIKE' => '%' . $search . '%',
-                'Checklists.area LIKE' => '%' . $search . '%',
+                'Checklists.name ILIKE' => '%' . $search . '%',
+                'Checklists.code ILIKE' => '%' . $search . '%',
+                'Checklists.area ILIKE' => '%' . $search . '%',
             ]]);
         }
         if (in_array($status, ['ATIVO', 'PAUSADO'], true)) {

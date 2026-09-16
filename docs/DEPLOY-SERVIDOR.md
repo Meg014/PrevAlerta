@@ -1,184 +1,212 @@
-# PrevAlerta — implantação no servidor interno
+# PrevAlerta — servidor central com PostgreSQL
 
-## 1. Entrega e arquitetura
+## 1. Pré-requisitos
 
-Os PCs executam somente o cliente Windows. O servidor hospeda CakePHP, PHP, servidor HTTP e MariaDB. O instalador Windows não inclui código PHP, banco nem credenciais.
+O banco oficial é **PostgreSQL**. A aplicação continua em CakePHP 5.4.1/PHP 8.2 ou superior, com Composer 2, Git e Apache/PHP-FPM (ou equivalente). PostgreSQL 16.14 foi usado na validação. A TI pode aproveitar o PostgreSQL 16 da empresa. O banco será novo; não será feita transferência dos dados de teste do MariaDB.
 
-A TI recebe `dist/` e precisa receber acesso ao **repositório do projeto separadamente**. Esta pasta de trabalho não tem metadados `.git`; o endereço do repositório e a versão de produção ainda precisam ser definidos pela equipe. Os exemplos `URL_DO_REPOSITORIO` e `BRANCH_APROVADA` abaixo devem ser substituídos. Não envie `config/app_local.php`, `.env`, bancos, `tmp/` ou `logs/` junto com o código.
+O app Windows continua acessando somente a URL do servidor. Não instale PHP ou banco nos clientes.
 
-Defina um nome no DNS interno, inicialmente `prevalerta`, apontando para o IP fixo do servidor. O cliente é entregue com `http://prevalerta/`; quando a TI definir HTTPS/nome definitivo, ajuste a mesma URL em `App.fullBaseUrl` no servidor e `serverUrl` nos clientes.
+### Extensões PHP
 
-## 2. Pré-requisitos do servidor
+O driver CakePHP **Cake\Database\Driver\Postgres** requer **pdo_pgsql**. Habilite também **pgsql**, além de intl, mbstring, dom, simplexml, xml, xmlwriter, curl, openssl e zip.
 
-- PHP **8.2 ou superior**, compatível com `composer.lock`, na linha de comando e no servidor HTTP. Habilitar `intl`, `mbstring`, `pdo_mysql`, `dom`, `simplexml`, `xml`, `xmlwriter`, `curl`, `openssl` e `zip`; JSON/PDO também precisam estar disponíveis.
-- Composer 2, Git e MariaDB como serviço com início automático.
-- Apache 2.4 com PHP habilitado e `mod_rewrite`, ou servidor HTTP equivalente configurado para CakePHP. Este guia usa Apache como exemplo.
-- Conta de implantação para código/Composer e conta de serviço do PHP com escrita em `tmp/` e `logs/`. O restante do código precisa somente de leitura pelo serviço.
-- Acesso ao repositório e às dependências pelo servidor ou por uma etapa de preparação aprovada pela TI.
+No Ubuntu, instale o pacote correspondente à versão do PHP do serviço. Exemplo para PHP 8.3:
 
-Em Windows Server, instale esses componentes e configure Apache/PHP e MariaDB como serviços. Em Linux, use os pacotes mantidos pela distribuição ou pela TI. Ajuste os caminhos dos exemplos ao sistema escolhido. Não use `php -S`, `start-local.ps1` ou a instância de desenvolvimento em `tmp/mariadb` para hospedar produção.
+~~~bash
+sudo apt update
+sudo apt install php8.3-pgsql
+php -m | grep -E 'PDO|pdo_pgsql|pgsql'
+~~~
 
-Confira antes de prosseguir:
+Para PHP 8.2, use php8.2-pgsql; para outra série, substitua o número. Confira tanto o PHP da CLI quanto o PHP-FPM/Apache e reinicie o serviço correto após habilitar a extensão. No Windows, habilite extension=pdo_pgsql e extension=pgsql no php.ini efetivamente carregado.
 
-```text
-php --version
-php --ini
-php -m
-composer --version
-git --version
-mariadb --version
-```
+Confira php --version, php --ini, php -m, composer --version e psql --version. pdo_mysql e MariaDB não são mais necessários. [Driver Postgres do CakePHP](https://api.cakephp.org/5.3/class-Cake.Database.Driver.Postgres.html).
 
-O CSS já compilado em `webroot/css/app.css` deve acompanhar o código. Node.js não é necessário para executar a aplicação; só é usado na etapa de build quando houver alterações nos assets. Referência: [instalação do CakePHP](https://book.cakephp.org/5/en/installation.html).
+## 2. Código e dependências
 
-## 3. Obter o código e instalar dependências
+Na pasta de implantação, substituindo os marcadores pelos dados aprovados:
 
-Use uma pasta fora da raiz pública genérica do servidor, por exemplo `C:/sites/prevalerta` no Windows ou `/srv/prevalerta` no Linux:
-
-```text
+~~~text
 git clone URL_DO_REPOSITORIO prevalerta
 cd prevalerta
 git checkout BRANCH_APROVADA
 composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
 composer check-platform-reqs --no-dev
-```
+~~~
 
-Execute o Composer com a conta de implantação. Use `composer install` para respeitar as versões do lock; não use `composer update` como procedimento de implantação. O PHP da linha de comando e o do serviço HTTP devem ter as mesmas extensões. [Comandos do Composer](https://getcomposer.org/doc/03-cli.md).
+Use composer install para respeitar o lock. O CSS compilado em webroot/css/app.css acompanha o código; Node.js só é necessário na preparação de assets. Não envie config/app_local.php, .env, bancos, backups, tmp/ ou logs/ ao Git.
 
-## 4. Criar o banco
+## 3. Criar usuário e banco
 
-Conecte-se ao MariaDB no próprio servidor com uma conta administrativa. Exemplo para banco novo, usando conexão TCP local:
+**Exemplos:** usuário pcm e banco prev_alerta. A TI pode definir outros nomes. No Ubuntu, abra o psql administrativo:
 
-```sql
-CREATE DATABASE prev_agenda CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'prev_agenda'@'127.0.0.1' IDENTIFIED BY 'SUBSTITUIR_POR_SENHA_EXCLUSIVA';
-GRANT ALL PRIVILEGES ON prev_agenda.* TO 'prev_agenda'@'127.0.0.1';
-```
+~~~bash
+sudo -u postgres psql
+~~~
 
-A senha acima é um marcador, não uma credencial para uso. As permissões ficam limitadas a esse banco e permitem aplicar migrations. A TI pode separar uma conta de migrations e uma conta de execução conforme sua política. Não use `root` na aplicação. Se o banco estiver em outro servidor, adapte host, conta e firewall para aceitar somente o servidor da aplicação. [Criação de usuários](https://mariadb.com/docs/server/reference/sql-statements/account-management-sql-statements/create-user) e [permissões no MariaDB](https://mariadb.com/docs/server/reference/sql-statements/account-management-sql-statements/grant).
+Em outros ambientes, use a conta administrativa aprovada pela TI. Dentro do psql:
 
-Para transportar dados existentes, faça backup/restauração do banco completo, incluindo o histórico das migrations. Não copie o diretório físico de dados do ambiente de desenvolvimento. Não importe esquemas de teste nem recrie tabelas sobre dados existentes.
+~~~sql
+CREATE ROLE pcm LOGIN;
+\password pcm
+CREATE DATABASE prev_alerta OWNER pcm ENCODING 'UTF8' TEMPLATE template0;
+\connect prev_alerta
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+GRANT USAGE, CREATE ON SCHEMA public TO pcm;
+~~~
 
-## 5. Configuração exclusiva do servidor
+O comando \password solicita a senha sem gravá-la no exemplo. Não use a conta administrativa na aplicação. Como proprietário do banco e dos objetos criados, pcm pode aplicar as migrations e executar a aplicação, sem SUPERUSER ou CREATEDB. Se houver uma conta separada de execução, conceda USAGE no schema, SELECT/INSERT/UPDATE/DELETE nas tabelas e USAGE/SELECT nas sequências, incluindo objetos futuros da conta de migrations.
 
-Crie `config/app_local.php` a partir de `config/app_local.example.php` se ainda não existir. O script do Composer também pode ter criado esse arquivo; nesse caso, edite-o e preserve o `Security.salt` já gerado.
+Configure listen_addresses e pg_hba.conf para o host do PHP. Se PHP e PostgreSQL estiverem na mesma máquina, uma regra de exemplo é:
 
-Exemplo mínimo de configuração final (substitua os marcadores):
+~~~text
+host  prev_alerta  pcm  127.0.0.1/32  scram-sha-256
+~~~
 
-```php
+Para banco remoto, autorize somente o servidor PHP e configure TLS conforme a política da TI. Recarregue PostgreSQL após alterar sua configuração. Não abra 5432 aos PCs clientes e não use trust em produção.
+
+## 4. Configurar CakePHP
+
+Copie config/app_local.example.php para config/app_local.php se ainda não existir. O Composer pode já ter criado o arquivo; nesse caso, edite-o preservando Security.salt. **O arquivo local antigo precisa ser ajustado:** mudar somente o exemplo não substitui uma configuração MariaDB já existente.
+
+Exemplo sem credenciais reais:
+
+~~~php
 <?php
+use Cake\Database\Driver\Postgres;
+
 return [
     'debug' => false,
-    'Security' => ['salt' => 'SUBSTITUIR_POR_VALOR_ALEATORIO_EXCLUSIVO'],
+    'Security' => ['salt' => 'MANTER_O_SALT_GERADO_PARA_ESTE_AMBIENTE'],
     'App' => ['fullBaseUrl' => 'http://prevalerta'],
     'LocalAccess' => ['enabled' => false, 'allowRemote' => false],
     'Datasources' => [
         'default' => [
+            'driver' => Postgres::class,
             'host' => '127.0.0.1',
-            'port' => 3306,
-            'username' => 'prev_agenda',
-            'password' => 'SUBSTITUIR_POR_SENHA_EXCLUSIVA',
-            'database' => 'prev_agenda',
-            'encoding' => 'utf8mb4',
+            'port' => 5432,
+            'username' => 'pcm',
+            'password' => 'DEFINIR_NO_SERVIDOR',
+            'database' => 'prev_alerta',
+            'schema' => 'public',
+            'encoding' => 'utf8',
+            'timezone' => 'UTC',
+            'quoteIdentifiers' => true,
             'url' => null,
         ],
     ],
 ];
-```
+~~~
 
-Para um ambiente novo, gere o salt com `php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"` e guarde o valor no arquivo. Não regenere esse valor a cada atualização.
+O exemplo do projeto aceita DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME e DB_SCHEMA por ambiente. DATABASE_URL também pode ser usado com esquema postgres://; confira se não continua apontando ao MySQL/banco antigo. Remova opções antigas como utf8mb4 e flags PDO específicas de MySQL. PostgreSQL usa utf8.
 
-**Defina explicitamente `LocalAccess.enabled=false` no servidor central.** A configuração padrão do projeto é voltada à validação local; o servidor de rede deve utilizar o login e os usuários já implementados. Não habilite `allowRemote` para contornar login. Essa configuração seleciona o mecanismo de autenticação existente, sem mudar regras de negócio.
+O projeto não lê .env automaticamente: configure app_local.php ou variáveis reais na CLI e no serviço. Não coloque senha, IP interno ou usuário real no repositório. Preserve o salt nas atualizações; no ambiente novo, gere-o com:
 
-O host de `App.fullBaseUrl` deve corresponder ao nome usado no acesso: com `debug=false`, o middleware rejeita outro cabeçalho Host. Acesso direto pelo IP pode ser rejeitado mesmo com o servidor funcionando. Para HTTPS, configure `https://nome-definitivo` e certificado confiável pelos PCs; a URL do cliente deve já usar o esquema/host final, sem depender de redirecionamento entre origens.
+~~~text
+php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"
+~~~
 
-O projeto não carrega `.env` automaticamente. Configure diretamente `app_local.php` ou variáveis reais no ambiente do serviço e da CLI. Restrinja a leitura desse arquivo à TI e à conta do PHP. Não o envie no pacote Windows nem o registre no Git. As configurações restantes, inclusive timezone/recorrência, continuam herdadas do projeto.
+No servidor central, LocalAccess.enabled=false seleciona o login existente. App.fullBaseUrl deve usar o host definido no DNS, pois o middleware verifica o Host. Configure HTTPS e a URL final tanto no servidor quanto em serverUrl do config.json do cliente. Trocar o banco não requer mudança no executável Windows.
 
-## 6. Aplicar migrations e criar o administrador
+## 5. Conferir conexão e aplicar migrations
 
-Na pasta do projeto, com acesso ao banco correto:
+Confirme usuário/banco/rede:
 
-```text
+~~~bash
+psql -h 127.0.0.1 -p 5432 -U pcm -d prev_alerta -W -c "SELECT current_database(), current_user, version();"
+~~~
+
+Na raiz do projeto, com a mesma configuração do PHP do serviço:
+
+~~~text
 php bin/cake.php migrations migrate
 php bin/cake.php migrations status
 php bin/cake.php schema_cache clear
-```
+php bin/cake.php cache clear_all
+~~~
 
-Confirme que as quatro migrations fornecidas foram aplicadas. Para um banco existente, faça backup antes de executar. Garanta que a conta do PHP tenha escrita em `tmp/` e `logs/`, incluindo cache e sessão; não dê escrita global ao código.
+As quatro migrations devem constar como **up**. Esses comandos também validam a conexão CakePHP com PostgreSQL. Não importe SQL de MariaDB nem schema-dump antigo: as migrations PHP são a fonte do schema. config/Migrations/schema-dump-*.lock é cache local ignorado pelo Git.
 
-No Windows, crie o primeiro administrador pelo script existente (a senha é solicitada sem exibição):
+### Compatibilidade revisada
 
-```powershell
+| Item | PostgreSQL |
+| --- | --- |
+| IDs automáticos | Identity gerada pelo adaptador de migrations |
+| Booleanos | boolean, incluindo default true de users.active |
+| datetime | timestamp without time zone; aplicação e conexão permanecem em UTC |
+| date | date; recorrência preservada |
+| string/text | varchar com os limites existentes / text |
+| Nullable/defaults | Preservados, incluindo materialized_cycle=-1 |
+| Índices e FKs | Preservados, incluindo RESTRICT |
+| Unicidade | Código, e-mail, programação/data e auditoria CIENTE preservados |
+| DECIMAL/ENUM | Não utilizados nas migrations atuais |
+
+Os serviços mantêm suas transações e a ordem dos bloqueios por checklist/ocorrência. FOR UPDATE é compatível com PostgreSQL e foi preservado. Bloqueios e índices únicos continuam protegendo contra duplicidade. [Bloqueios PostgreSQL](https://www.postgresql.org/docs/16/explicit-locking.html).
+
+As buscas de checklists e histórico usam ILIKE pelo Query Builder para manter a busca sem distinguir maiúsculas/minúsculas no PostgreSQL. Não houve alteração nos registros ou nas regras do histórico. [Comparação de padrões PostgreSQL](https://www.postgresql.org/docs/16/functions-matching.html).
+
+config/schema/sessions.sql e config/schema/i18n.sql são modelos legados MySQL do esqueleto CakePHP, **não utilizados** pelas migrations ou pelo sistema atual. Não execute esses modelos no PostgreSQL. O sistema usa sessões em arquivos (Session.defaults=cake) e não utiliza o schema i18n; não existe dependência operacional desses scripts.
+
+## 6. Administrador e servidor HTTP
+
+Crie o primeiro administrador no Windows:
+
+~~~powershell
 .\scripts\create-admin.ps1 -Email 'administrador@empresa.local' -Name 'Administrador'
-```
+~~~
 
-No Linux, usando Bash e sem colocar a senha no histórico:
+Ou no Bash:
 
-```bash
+~~~bash
 read -rsp 'Senha do administrador (12 a 72 caracteres): ' PREV_ADMIN_PASSWORD
 echo
 export PREV_ADMIN_PASSWORD
 php bin/cake.php create_admin administrador@empresa.local Administrador
 unset PREV_ADMIN_PASSWORD
-```
+~~~
 
-O comando recusa criar outro administrador se já houver um ativo. Nesse caso, use a tela Usuários com a conta existente.
+Se já houver um administrador ativo, use a tela Usuários.
 
-## 7. Publicar no Apache e liberar a rede interna
+Configure Apache/PHP-FPM como serviço, com DocumentRoot apontando **somente para webroot/**. Exemplo HTTP de associação de host/diretório, com PHP previamente habilitado:
 
-O DocumentRoot deve ser **somente `webroot/`**, nunca a raiz inteira do projeto. Exemplo de VirtualHost HTTP para validação interna (substitua o caminho; PHP precisa estar previamente habilitado no Apache):
-
-```apache
+~~~apache
 <VirtualHost *:80>
     ServerName prevalerta
-    DocumentRoot "C:/sites/prevalerta/webroot"
-    <Directory "C:/sites/prevalerta/webroot">
+    DocumentRoot "/srv/prevalerta/webroot"
+    <Directory "/srv/prevalerta/webroot">
         Options -Indexes +FollowSymLinks
         AllowOverride All
         Require all granted
     </Directory>
 </VirtualHost>
-```
+~~~
 
-Em Linux, use `/srv/prevalerta/webroot` no exemplo. Ative `mod_rewrite`, valide a configuração com `httpd -t` (ou `apachectl configtest`) e reinicie/recarregue o serviço. O `.htaccess` em `webroot/` encaminha rotas para `index.php`. Configure a política de acesso restrita à rede/VPN interna no firewall. Adote TLS no servidor para transportar login/sessão; o bloco acima mostra apenas a associação de host e diretório.
+No Windows, adapte para C:/sites/prevalerta/webroot. Ative mod_rewrite, confira apachectl configtest (ou httpd -t) e recarregue. Garanta escrita do PHP em tmp/ e logs/ e restrinja app_local.php à TI/serviço. Configure HTTPS com certificado confiável pelos PCs antes do uso com credenciais reais.
 
-Libere somente a porta HTTP/HTTPS utilizada entre PCs e servidor. MariaDB deve permanecer acessível somente ao servidor PHP; não abra 3306 para os clientes. Cadastre o DNS interno e confira de outro PC:
+Cadastre DNS interno e libere HTTP/HTTPS entre clientes e servidor; o banco só recebe conexões do PHP. Confirme login, dashboard e /checklists pela URL definitiva. O acesso por IP pode ser rejeitado quando o host configurado for diferente.
 
-```powershell
-Resolve-DnsName prevalerta
-Test-NetConnection prevalerta -Port 80
-```
+scripts/start-local.ps1 serve apenas para validação: inicia PHP e exige PostgreSQL já disponível. Não inicia mais MariaDB. Não use php -S em produção.
 
-Para HTTPS, use a porta 443 e o nome escolhido. Abra a URL final, confirme o login e o dashboard. A aplicação deve carregar CSS, ícone e rotas como `/checklists`; se apenas a página inicial funcionar, revise rewrite. Verifique se arquivos como `/config/app_local.php` não estão publicados.
+## 7. Validação e concorrência
 
-## 8. Entregar aos PCs e homologar
+Em 16/09/2026, as quatro migrations foram aplicadas em banco PostgreSQL **16.14 vazio**, numa instância temporária isolada. Tipos, índices únicos e FKs foram inspecionados. Foram reutilizados **9 testes existentes, com 88 assertions**, cobrindo abertura/login, cadastro/edição HTTP, dashboard/histórico após CIENTE, repetição de CIENTE, rollback de auditoria, pausa/reativação e requisições concorrentes. Todos passaram.
 
-Envie a pasta `dist/`. Em cada conta de usuário, execute o Setup, ajuste `config.json` ao lado do executável e siga `README-TI.txt`. Nenhum PHP, Composer ou banco é necessário no PC. Para máquinas compartilhadas, esta versão do instalador precisa ser executada para cada usuário que usará o app.
+Nenhuma suíte nova foi criada. Serviços de negócio, migrations, layout, app Windows e notificações não foram alterados nesta adaptação. A CI existente passou a usar PostgreSQL/pdo_pgsql. Para testes, configure a conexão test para outro banco, nunca o de produção. A TI deve homologar a configuração real do servidor.
 
-Faça a homologação manual com a URL definitiva:
+## 8. Backup e atualização via Git
 
-1. Login, dashboard e navegação com o layout existente.
-2. Sessão autenticada consultando `/desktop/alert-summary`; a resposta deve ser JSON com `overdue` e `today`. A chamada sem sessão não deve liberar dados.
-3. Consulta real pelo script de suporte fornecido e clique abrindo/restaurando o app. O script usa a sessão do app e os totais do servidor, sem dados fictícios; sem pendências, não mostra aviso. O cliente continua consultando a cada minuto e atualiza o aviso quando os totais mudam.
-4. Saída/entrada no Windows com a opção de início automático habilitada.
-5. Indisponibilidade temporária do servidor exibindo mensagem amigável no app.
+Antes de atualizar:
 
-O dashboard sincroniza ocorrências ao abrir. Opcionalmente a TI pode agendar `php bin/cake.php sync_occurrences` diariamente **no servidor**, com diretório de trabalho e credenciais de ambiente corretos; não é necessário agendar nos clientes.
-
-## 9. Backup e atualizações via Git
-
-Antes de atualizar, registre o commit atual, faça backup do banco e de `config/app_local.php` e confirme que há um procedimento de restauração. Por exemplo, no servidor:
-
-```text
+~~~text
 git rev-parse HEAD
-mariadb-dump -h 127.0.0.1 -u USUARIO_BACKUP -p --single-transaction --routines --triggers --events --result-file=CAMINHO_SEGURO/prev_agenda.sql prev_agenda
-```
+pg_dump -h 127.0.0.1 -p 5432 -U pcm -W -Fc -f CAMINHO_SEGURO/prev_alerta.dump prev_alerta
+~~~
 
-Use uma conta de backup com permissões apropriadas e uma pasta protegida fora de `webroot/`; as credenciais são informadas pela TI. [Backup com mariadb-dump](https://mariadb.com/docs/server/clients-and-utilities/backup-restore-and-import-clients/mariadb-dump).
+Guarde app_local.php/salt separadamente, em local protegido. Para restaurar, use pg_restore em banco apropriado e homologue o backup.
 
-Em janela de manutenção, suspenda acessos/gravações pelo servidor HTTP e agendamentos de sincronização, sem alterar o código. Na branch aprovada:
+Em janela de manutenção, suspenda acessos/gravações e agendamentos. Na branch aprovada:
 
-```text
+~~~text
 git status --short
 git pull --ff-only origin BRANCH_APROVADA
 composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
@@ -187,16 +215,8 @@ php bin/cake.php migrations migrate
 php bin/cake.php migrations status
 php bin/cake.php schema_cache clear
 php bin/cake.php cache clear_all
-```
+~~~
 
-Se houver alterações locais ou divergência de branch, pare e resolva com a equipe responsável; não force substituições. Preserve `config/app_local.php`, salt e banco. Recarregue PHP/Apache para limpar OPcache, retome agendamentos e valide login, dashboard e resumo antes de liberar o acesso.
+Resolva divergências/alterações locais antes de prosseguir. Preserve configuração, salt e banco; recarregue PHP/Apache e valide antes de liberar acessos. Rollback após alteração de schema exige código e backup compatíveis.
 
-Se a atualização incluir assets, utilize o CSS compilado pela equipe; quando a TI também fizer o build, execute `npm ci` e `npm run build` na etapa de preparação. Isso não é necessário nos PCs.
-
-Atualizar o CakePHP não exige reinstalar o cliente quando a interface HTTP permanecer compatível. Para mudança no executável, distribua um novo Setup; a configuração existente é preservada. Em falha após uma migration, o rollback deve combinar a versão anterior do código e a restauração do backup compatível, conforme o plano da TI.
-
-## 10. Limites desta entrega
-
-O pacote foi validado nesta máquina por instalação, atualização preservando a URL, criação/remoção de atalhos e desinstalação. O executável instalado abriu o servidor local com HTTP 200. O WebView2 existente foi detectado; a instalação do Runtime ausente ainda precisa ser homologada em PC limpo. Esses procedimentos não alteraram código ou regras de negócio e não criaram testes automatizados.
-
-O instalador é entregue com `http://prevalerta/` como nome a ser configurado pela TI. DNS, certificado, credenciais, repositório definitivo e servidor de produção ainda não foram provisionados nesta entrega. A homologação na infraestrutura da empresa e em Windows sem WebView2 pré-instalado cabe à TI antes da distribuição geral. Nenhum teste automatizado novo foi criado.
+A sincronização opcional php bin/cake.php sync_occurrences continua somente no servidor. Não é preciso reinstalar o cliente para trocar MariaDB por PostgreSQL; mantenha a interface HTTP e a URL configurada pela TI.

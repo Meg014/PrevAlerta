@@ -18,9 +18,9 @@ class HistoryController extends AppController
         $action = (string)$this->request->getQuery('action', '');
         if ($search !== '') {
             $query->where(['OR' => [
-                'Checklists.code LIKE' => '%' . $search . '%',
-                'Checklists.name LIKE' => '%' . $search . '%',
-                'ChecklistHistory.description LIKE' => '%' . $search . '%',
+                'Checklists.code ILIKE' => '%' . $search . '%',
+                'Checklists.name ILIKE' => '%' . $search . '%',
+                'ChecklistHistory.description ILIKE' => '%' . $search . '%',
             ]]);
         }
         if (in_array($action, ['CIENTE', 'CRIACAO', 'EDICAO', 'MUDANCA_DATA_BASE', 'PAUSA', 'REATIVACAO'], true)) {

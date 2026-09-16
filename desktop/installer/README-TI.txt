@@ -1,7 +1,7 @@
 PREVALERTA - ENTREGA PARA TI
 
 SERVIDOR: implantar o projeto CakePHP conforme DEPLOY-SERVIDOR.md.
-O Setup instala somente o cliente Windows; PHP e MariaDB ficam no servidor.
+O Setup instala somente o cliente Windows; PHP e PostgreSQL ficam no servidor.
 
 1. INSTALAR
    Execute PrevAlerta-Setup.exe na conta Windows que usará o sistema.

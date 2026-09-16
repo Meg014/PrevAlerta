@@ -2,25 +2,15 @@
 
 Sistema de lembretes de checklists de manutenção preventiva. **Sistema principal aprovado; Fases 1 a 4 implementadas.**
 
-CakePHP **5.4.1**, PHP 8.2, MariaDB e Tailwind CSS compilado localmente. Sem integrações externas ou abertura de O.S.
+CakePHP **5.4.1**, PHP 8.2, PostgreSQL e Tailwind CSS compilado localmente. Sem integrações externas ou abertura de O.S.
 
-## Acesso neste computador
+## Implantação atual
 
-Instruções para iniciar automaticamente com o Windows, verificar a execução e cuidar dos dados: [Operação no PC](docs/OPERACAO-PC.md).
+O banco oficial é PostgreSQL. Siga [Deploy do servidor](docs/DEPLOY-SERVIDOR.md) para criar o banco vazio, configurar pdo_pgsql, aplicar as migrations e publicar o CakePHP. O exemplo está em `config/app_local.example.php`; credenciais ficam somente no ambiente/arquivo local.
 
-Aplicação: **http://127.0.0.1:8765/** — acesso direto ao dashboard, sem login manual.
+O app Windows acessa o servidor central e não precisa ser alterado por causa do banco. As instruções antigas de MariaDB em documentos das fases anteriores são históricas.
 
-Para ativar o início automático e os alertas nativos do Windows, execute uma única vez **`scripts/ativar-inicio-automatico.bat`** na conta que usará o PC. A conta interna **PCM (ADMIN)** identifica as ações na auditoria; os autores antigos permanecem preservados. `/login` redireciona ao dashboard. Detalhes, teste de notificação e desativação estão no guia de operação acima.
-
-Em um novo computador, use o MariaDB instalado como serviço automático do Windows e configure a conexão em `config/app_local.php`. A instância isolada antiga em `tmp/mariadb`, porta 3307, continua compatível, mas é local e não acompanha o clone.
-
-Para reiniciar os serviços locais no Windows:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/start-prevagenda.ps1
-```
-
-Os scripts descobrem a raiz pela própria localização e procuram `php.exe` no PATH. A configuração do banco permanece local. Logs do servidor ficam em `logs/`; os da automação, em `%LOCALAPPDATA%\PrevAgenda`. Não são criados nem apagados bancos pelos scripts.
+Para validar localmente, PostgreSQL deve estar em execução e a conexão deve estar configurada. `scripts/start-local.ps1` inicia apenas PHP; não inicia banco. Na empresa, use o servidor HTTP como serviço, conforme o guia de deploy.
 
 ## Entregue na Fase 1
 
@@ -82,39 +72,9 @@ Detalhes e testes: [docs/FASE-4.md](docs/FASE-4.md). Aplique migrations e limpe 
 
 Arquitetura, regras, modelo e próximas fases: [docs/PLANO.md](docs/PLANO.md).
 
-## Instalação em um novo computador
+## Instalação em um novo servidor
 
-Execute os comandos abaixo na pasta em que deseja manter o projeto. A pasta pode estar em qualquer unidade e pode conter espaços. Não é necessário editar caminhos nos scripts.
-
-1. **Instale PHP 8.2 ou superior, Composer, Git e MariaDB.** Habilite no PHP as extensões `intl`, `mbstring`, `pdo_mysql`, `dom`, `simplexml`, `xml` e `xmlwriter`. Adicione a pasta de `php.exe` ao **PATH do Windows** e confirme `php --version` e `composer --version` em um novo terminal. Configure o MariaDB como **serviço do Windows**, com início **Automático**, e confirme que está em execução. Após mudar o PATH, saia e entre no Windows para que o Agendador receba o ambiente atualizado.
-2. **Clone o repositório** (substitua o endereço pelo endereço real):
-   ```powershell
-   git clone <repositorio> prev-agenda
-   cd prev-agenda
-   ```
-3. **Instale as dependências:**
-   ```powershell
-   composer install
-   composer check-platform-reqs
-   ```
-   O instalador cria `config/app_local.php`, os diretórios de trabalho e uma chave `Security.salt` exclusiva quando ainda não existem. Preserve essa chave. O CSS compilado em `webroot/css/app.css` deve estar no Git; Node.js não é necessário para apenas executar o sistema.
-4. **Configure o banco local.** No MariaDB, crie um banco vazio `prev_agenda` com codificação `utf8mb4` e um usuário próprio com senha e permissões nesse banco (incluindo criação/alteração de tabelas para migrations). Em **`config/app_local.php`**, configure `Datasources.default`: host `127.0.0.1`, porta do serviço (normalmente `3306`), banco, usuário e senha. Mantenha `debug=false` e `App.fullBaseUrl=http://127.0.0.1:8765`. Esse arquivo é local e ignorado pelo Git; nunca copie credenciais para os scripts ou para o arquivo de exemplo. A conexão `test` só é necessária para executar testes e deve apontar para outro banco.
-5. **Aplique as migrations no banco vazio:**
-   ```powershell
-   php bin/cake.php migrations migrate
-   php bin/cake.php schema_cache clear
-   ```
-6. **Teste manualmente:**
-   ```powershell
-   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-local.ps1
-   ```
-   Abra **http://127.0.0.1:8765/**. Deve aparecer o dashboard sem login, com a identidade interna PCM. O script inicia o servidor em segundo plano e aguarda a resposta; reexecutá-lo reutiliza o servidor existente.
-7. **Ative a automação uma única vez:** dê duplo clique em **`scripts\ativar-inicio-automatico.bat`** na conta do operador. A tarefa e o atalho são registrados com a pasta real do clone. Não é necessário abrir PowerShell no uso diário nem informar o caminho do PHP.
-8. **Reinicie e valide:** entre na mesma conta, aguarde 30 segundos mais a inicialização e confira o dashboard. Havendo atrasados ou vencimentos de hoje, confira a notificação e clique nela. Sem pendências, não deve haver aviso. Para testar a notificação sem criar dados reais, execute `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-notification.ps1`.
-
-O Git transporta o código, não o banco nem a configuração local. Para transportar dados existentes, exporte e restaure o banco separadamente; não copie `tmp\mariadb` ou senhas para o repositório. Não execute migrations sobre uma instalação existente sem seu backup.
-
-Se mover ou renomear a pasta depois da ativação, execute novamente `ativar-inicio-automatico.bat` no novo local para atualizar a tarefa e o atalho. Se o servidor antigo ainda estiver ativo, reinicie o PC depois dessa atualização para carregar o código do novo local.
+Siga [docs/DEPLOY-SERVIDOR.md](docs/DEPLOY-SERVIDOR.md). Use PostgreSQL, PHP com pdo_pgsql/pgsql e Composer. As quatro migrations existentes criam o schema completo em banco vazio; não importe SQL de MariaDB nem dados de teste. Não envie configuração local, credenciais, bancos ou backups ao Git.
 
 ## Verificação
 
@@ -134,7 +94,7 @@ Testes de navegador (Chromium):
 php tests/seed_browser.php
 npx playwright install chromium
 # Em outro terminal, use a mesma conexão test configurada em app_local.php:
-$env:DATABASE_URL='mysql://root@127.0.0.1:3307/test_prev_agenda'
+$env:DATABASE_URL=$env:DATABASE_TEST_URL # URL PostgreSQL de um banco exclusivo de testes
 $env:PREV_LOCAL_ACCESS='false' # suíte de navegador histórica de login e perfis
 php bin/cake.php server -H 127.0.0.1 -p 8766
 # Com esse servidor rodando, no terminal original:

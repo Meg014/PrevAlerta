@@ -6,23 +6,25 @@ jobs:
   phase-one:
     runs-on: ubuntu-latest
     services:
-      mariadb:
-        image: mariadb:10.11
+      postgres:
+        image: postgres:16
         env:
-          MARIADB_ROOT_PASSWORD: ci-only-password
-          MARIADB_DATABASE: test_prev_agenda
-        ports: ['3306:3306']
+          POSTGRES_USER: pcm_test
+          POSTGRES_DB: test_prev_alerta
+          # Disposable CI database only; production uses password authentication.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
         options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-cmd="pg_isready -U pcm_test -d test_prev_alerta"
           --health-interval=10s --health-timeout=5s --health-retries=10
     env:
-      DATABASE_TEST_URL: mysql://root:ci-only-password@127.0.0.1:3306/test_prev_agenda
+      DATABASE_TEST_URL: postgres://pcm_test@127.0.0.1:5432/test_prev_alerta?encoding=utf8&quoteIdentifiers=true
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: intl, mbstring, pdo_mysql
+          extensions: intl, mbstring, pdo_pgsql, pgsql
           coverage: none
       - uses: actions/setup-node@v4
         with:

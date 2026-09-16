@@ -4,7 +4,7 @@
 
 O ícone oficial está em `desktop/assets/PrevAlerta.ico`, derivado de `webroot/ICON.png`, com transparência e tamanhos de 16, 24, 32, 48, 64, 128 e 256 pixels. App e instalador usam esse mesmo arquivo; a publicação o copia como `PrevAlerta.ico` para a janela, atalhos e identificação Windows. O PNG em `desktop/assets/PrevAlerta.png` também acompanha a publicação para exibir a imagem oficial nas notificações.
 
-O cliente WinForms/WebView2 está em `desktop/PrevAlerta.App`. Ele exibe diretamente as páginas do CakePHP, preservando o layout e as regras de negócio existentes. PHP, MariaDB e os dados ficam no servidor. O cliente não inicia serviços locais.
+O cliente WinForms/WebView2 está em `desktop/PrevAlerta.App`. Ele exibe diretamente as páginas do CakePHP, preservando o layout e as regras de negócio existentes. PHP, PostgreSQL e os dados ficam no servidor. O cliente não inicia serviços locais.
 
 O executável publicado nesta máquina está em `desktop/artifacts/win-x64/PrevAlerta.exe`. Distribua a pasta inteira, incluindo DLLs, ícone e `config.json`; o executável sozinho não é suficiente. Esta publicação inclui o runtime .NET e exige Windows 10/11 x64 e Microsoft Edge WebView2 Evergreen Runtime instalado.
 
@@ -90,7 +90,7 @@ Não foram criados testes automatizados. O clique físico no banner, o próximo 
 
 ## Distribuição e pendências de implantação
 
-O instalador foi preparado em `desktop/installer/PrevAlerta.iss`; `desktop/installer/build.ps1` gera `dist/` a partir da publicação existente. O ícone para empacotamento fica em `desktop/assets/PrevAlerta.ico`. O pacote não contém PHP, MariaDB ou configuração de banco.
+O instalador foi preparado em `desktop/installer/PrevAlerta.iss`; `desktop/installer/build.ps1` gera `dist/` a partir da publicação existente. O ícone para empacotamento fica em `desktop/assets/PrevAlerta.ico`. O pacote não contém PHP, PostgreSQL ou configuração de banco.
 
 A TI ainda precisa provisionar o servidor/DNS, definir a URL definitiva e homologar o uso na infraestrutura da empresa, incluindo logon e instalação do WebView2 em um PC limpo. O Setup não tem assinatura digital da organização. A desinstalação remove o app, atalhos e registros do instalador, preservando `config.json`, o perfil local e o WebView2 compartilhado.
 
