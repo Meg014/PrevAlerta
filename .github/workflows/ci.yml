@@ -26,7 +26,7 @@ jobs:
           php-version: '8.2'
           extensions: intl, mbstring, pdo_pgsql, pgsql
           coverage: none
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
