@@ -20,7 +20,7 @@ jobs:
     env:
       DATABASE_TEST_URL: postgres://pcm_test@127.0.0.1:5432/test_prev_alerta?encoding=utf8&quoteIdentifiers=true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
